@@ -1,3 +1,16 @@
+"""
+Description: The groups of queries specified below are to be used to all of
+the below.  Data sources are specified within 'dwh.cfg' file.:
+- create and drop tables (staging tables and final star schema tables), 
+  corresponding to data being loaded from given sources;
+- copying data into staging tables into Redshift cluster (staging_events, staging_songs) 
+  from S3 bucket provided
+- inserting data into final star schema tables in Redshift cluster (songlays, users, songs, 
+  artists, time) from staging tables
+- defining query lists to be used within programs 'create_tables.py' and 'etl.py'
+
+"""
+
 import configparser
 
 
@@ -32,8 +45,7 @@ staging_songs_table_create= ("""
                                 song_id VARCHAR(20),
                                 title VARCHAR(MAX),
                                 duration FLOAT4,
-                                year INT,
-                                PRIMARY KEY (song_id)
+                                year INT
                                 );
                                 """)
 
@@ -56,13 +68,12 @@ staging_events_table_create = ("""
                                 status INT, 
                                 ts BIGINT, 
                                 userAgent VARCHAR(MAX), 
-                                userId INT,
-                                PRIMARY KEY(sessionId,itemInSession)
+                                userId INT
                                 );
                                 """)
 
 songplay_table_create = ("""CREATE TABLE IF NOT EXISTS songplays (
-                            songplay_id INT IDENTITY(0,1) PRIMARY KEY, 
+                            songplay_id INT IDENTITY(0,1), 
                             start_time TIMESTAMP NOT NULL, 
                             user_id INT NOT NULL, 
                             level VARCHAR(5), 
@@ -75,7 +86,7 @@ songplay_table_create = ("""CREATE TABLE IF NOT EXISTS songplays (
                          """)
 
 user_table_create = ("""CREATE TABLE IF NOT EXISTS users (
-                        user_id INT PRIMARY KEY   SORTKEY DISTKEY, 
+                        user_id INT SORTKEY DISTKEY, 
                         first_name VARCHAR(25), 
                         last_name VARCHAR(25), 
                         gender VARCHAR(2), 
@@ -83,7 +94,7 @@ user_table_create = ("""CREATE TABLE IF NOT EXISTS users (
                      """)
 
 song_table_create = ("""CREATE TABLE IF NOT EXISTS songs (
-                        song_id VARCHAR(20) PRIMARY KEY  SORTKEY DISTKEY, 
+                        song_id VARCHAR(20) SORTKEY DISTKEY, 
                         title VARCHAR(MAX), 
                         artist_id VARCHAR(20), 
                         year INT, 
@@ -91,7 +102,7 @@ song_table_create = ("""CREATE TABLE IF NOT EXISTS songs (
                      """)
 
 artist_table_create = ("""CREATE TABLE IF NOT EXISTS artists (
-                          artist_id VARCHAR(20) PRIMARY KEY  SORTKEY DISTKEY, 
+                          artist_id VARCHAR(20) SORTKEY DISTKEY, 
                           name VARCHAR(MAX), 
                           location VARCHAR(MAX), 
                           latitude FLOAT4, 
@@ -99,7 +110,7 @@ artist_table_create = ("""CREATE TABLE IF NOT EXISTS artists (
                        """)
 
 time_table_create = ("""CREATE TABLE IF NOT EXISTS time (
-                        start_time TIMESTAMP PRIMARY KEY  SORTKEY DISTKEY, 
+                        start_time TIMESTAMP SORTKEY DISTKEY, 
                         hour INT, 
                         day INT, 
                         week INT, 
@@ -140,32 +151,32 @@ songplay_table_insert = ("""
 
 user_table_insert = ("""
                         INSERT INTO users (user_id, first_name, last_name, gender, level)
-                        SELECT userId, firstName, lastName, gender, level
+                        SELECT DISTINCT userId, firstName, lastName, gender, level
                         FROM staging_events
                         WHERE page = 'NextSong'
                         """)
 
 song_table_insert = ("""
                         INSERT INTO songs (song_id, title, artist_id, year, duration)
-                        SELECT song_id, title, artist_id, year, duration
+                        SELECT DISTINCT song_id, title, artist_id, year, duration
                         FROM staging_songs
                         """)
 
 artist_table_insert = ("""
                           INSERT INTO artists (artist_id, name, location, latitude, longitude)
-                          SELECT artist_id, artist_name, artist_location, artist_latitude, artist_longitude
+                          SELECT DISTINCT artist_id, artist_name, artist_location, artist_latitude, artist_longitude
                           FROM staging_songs
                           """)
 
 time_table_insert = ("""
                         INSERT INTO time (start_time, hour, day, week, month, year, weekday)
-                        SELECT timestamp 'epoch' + ts/1000 * interval '1 second' AS ts_timestamp,
-                               EXTRACT (HOUR FROM ts_timestamp),
-                               EXTRACT (DAY FROM ts_timestamp),
-                               EXTRACT (WEEK FROM ts_timestamp),
-                               EXTRACT (MONTH FROM ts_timestamp),
-                               EXTRACT (YEAR FROM ts_timestamp),
-                               TO_CHAR (ts_timestamp, 'Day')
+                        SELECT DISTINCT timestamp 'epoch' + ts/1000 * interval '1 second' AS ts_timestamp,
+                                        EXTRACT (HOUR FROM ts_timestamp),
+                                        EXTRACT (DAY FROM ts_timestamp),
+                                        EXTRACT (WEEK FROM ts_timestamp),
+                                        EXTRACT (MONTH FROM ts_timestamp),
+                                        EXTRACT (YEAR FROM ts_timestamp),
+                                        TO_CHAR (ts_timestamp, 'Day')
                         FROM staging_events
                         WHERE page = 'NextSong'
                         """)
